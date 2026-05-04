@@ -1,6 +1,11 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
+import { ArrowLeft, Sparkles } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
+import { Button } from '../components/ui/button';
+import { Header } from '../components/Header';
+import { LoadingSpinner } from '../components/LoadingSpinner';
 
 export default function ImageDetector() {
   const navigate = useNavigate();
@@ -62,77 +67,166 @@ export default function ImageDetector() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-white py-12 px-4">
-      <div className="max-w-3xl mx-auto bg-slate-900/80 border border-slate-700/80 rounded-3xl shadow-2xl shadow-black/50 p-10">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
-          <div>
-            <h2 className="text-4xl font-bold mb-2">كشف الصور المزيفة</h2>
+    <div className="min-h-screen relative overflow-hidden">
+      <div className="absolute inset-0 -z-10 bg-gradient-to-br from-gray-950 via-purple-950/20 to-gray-950" />
+
+      {/* Animated background orbs */}
+      <motion.div
+        className="absolute top-20 left-1/4 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl -z-10"
+        animate={{
+          scale: [1, 1.3, 1],
+          x: [0, -50, 0],
+          y: [0, 40, 0],
+        }}
+        transition={{
+          duration: 18,
+          repeat: Infinity,
+          ease: 'easeInOut',
+        }}
+      />
+
+      <Header />
+
+      <div className="container mx-auto px-6 py-12">
+        <Button
+          onClick={() => navigate('/')}
+          variant="ghost"
+          className="mb-8 text-gray-400 hover:text-white"
+        >
+          <ArrowLeft className="w-4 h-4 ml-2" />
+          العودة للرئيسية
+        </Button>
+
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="max-w-4xl mx-auto"
+        >
+          <div className="text-center mb-8">
+            <h1 className="text-4xl font-bold mb-3 bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
+              كشف الصور المزيفة
+            </h1>
             <p className="text-gray-400">قم بتحميل صورة لتحليلها واكتشاف ما إذا كانت مزيفة.</p>
           </div>
-          <button
-            className="rounded-full border border-slate-600 px-4 py-2 text-sm text-slate-200 hover:bg-slate-800/80"
-            onClick={() => navigate('/')}
-          >
-            العودة للرئيسية
-          </button>
-        </div>
 
-        <div className="space-y-6 text-center">
-          <div className="rounded-3xl border border-slate-700/80 bg-slate-950/70 p-6">
-            <label className="block text-left text-sm text-gray-400 mb-2">اختر صورة</label>
-            <input
-              type="file"
-              accept="image/*"
-              onChange={handleImageChange}
-              className="w-full rounded-2xl border border-slate-700 bg-slate-900/80 px-4 py-3 text-sm text-white"
-            />
-          </div>
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: 0.2 }}
+            className="bg-gray-900/50 backdrop-blur-sm border border-gray-700/50 rounded-2xl p-8 space-y-6 shadow-2xl shadow-purple-500/10"
+          >
+            <div>
+              <div className="flex justify-between items-center mb-3">
+                <label className="text-gray-300 font-medium">اختر صورة</label>
+                <Button
+                  onClick={() => {
+                    // Load example - for now just clear
+                    setImage(null);
+                    setPreview(null);
+                    setResult(null);
+                    setConfidence(null);
+                    setHeatmap(null);
+                    setShowHeatmap(false);
+                    setError(null);
+                  }}
+                  variant="ghost"
+                  size="sm"
+                  className="text-purple-400 hover:text-purple-300"
+                >
+                  <Sparkles className="w-4 h-4 ml-2" />
+                  مثال توضيحي
+                </Button>
+              </div>
+
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handleImageChange}
+                className="w-full rounded-2xl border border-gray-600 bg-gray-800/50 px-4 py-3 text-sm text-white file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-purple-600 file:text-white hover:file:bg-purple-700"
+              />
+            </div>
+          </motion.div>
 
           {preview && (
-            <div className="rounded-3xl border border-slate-700/80 bg-slate-950/70 p-6">
-              <h3 className="text-xl font-semibold mb-4">الصورة الأصلية</h3>
-              <img src={preview} className="mx-auto rounded-3xl border border-slate-700" width="300" />
-            </div>
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="rounded-3xl border border-gray-700/70 bg-gray-900/50 p-6"
+            >
+              <h3 className="text-xl font-semibold mb-4 text-gray-300">الصورة الأصلية</h3>
+              <img src={preview} className="mx-auto rounded-3xl border border-gray-700 max-w-full h-auto" />
+            </motion.div>
           )}
 
-          <button
-            onClick={handleAnalyze}
-            disabled={loading || !image}
-            className="inline-flex items-center justify-center rounded-full bg-blue-600 px-8 py-3 text-white disabled:cursor-not-allowed disabled:bg-slate-700 hover:bg-blue-500 transition-colors"
-          >
-            تحليل الصورة
-          </button>
+          <AnimatePresence mode="wait">
+            {loading && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+              >
+                <LoadingSpinner />
+              </motion.div>
+            )}
+
+            {!loading && (
+              <motion.div className="flex gap-4" whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+                <Button
+                  onClick={handleAnalyze}
+                  disabled={!image}
+                  className="flex-1 bg-purple-600 hover:bg-purple-700 text-white disabled:opacity-50 shadow-lg shadow-purple-500/30 hover:shadow-purple-500/50 transition-all"
+                  size="lg"
+                >
+                  <Sparkles className="w-5 h-5 ml-2" />
+                  تحليل الصورة
+                </Button>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           {error && (
-            <p className="mt-4 text-sm text-red-300 bg-red-500/10 border border-red-500/20 rounded-2xl px-4 py-3">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="mt-4 text-sm text-red-300 bg-red-500/10 border border-red-500/20 rounded-2xl px-4 py-3"
+            >
               {error}
-            </p>
+            </motion.div>
           )}
 
-          {loading && <p className="text-gray-300">جاري التحليل...</p>}
-
-          {result && (
-            <div className="rounded-3xl border border-slate-700/80 bg-slate-950/70 p-6 mt-6 text-left transition-all duration-300 ease-out">
+          {result && !loading && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className={`p-6 rounded-xl border-2 ${
+                result === 'Fake' ? 'bg-red-950/30 border-red-500/50' : 'bg-green-950/30 border-green-500/50'
+              }`}
+            >
               <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
                 <div>
-                  <h2 className="text-2xl font-bold">النتيجة: <span className="text-blue-300">{result}</span></h2>
+                  <h2 className="text-2xl font-bold">
+                    النتيجة: <span className={result === 'Fake' ? 'text-red-400' : 'text-green-400'}>
+                      {result === 'Fake' ? 'صورة مزيفة ⚠️' : 'صورة حقيقية ✅'}
+                    </span>
+                  </h2>
                   <p className="text-sm text-gray-400 mt-2">الثقة: {(confidence! * 100).toFixed(2)}%</p>
                 </div>
-                <button
+                <Button
                   onClick={() => setShowHeatmap(!showHeatmap)}
-                  className="rounded-full border border-slate-700 px-4 py-2 text-sm text-slate-100 hover:bg-slate-800/80"
+                  variant="outline"
+                  className="border-gray-600 hover:bg-gray-800 hover:border-purple-500/50 transition-all"
                 >
                   {showHeatmap ? 'إخفاء التفسير' : 'عرض التفسير'}
-                </button>
+                </Button>
               </div>
 
               <div className="grid gap-6 md:grid-cols-2">
-                <div className="rounded-3xl border border-slate-700/70 bg-slate-950/80 p-4">
-                  <h3 className="text-lg font-semibold mb-3">الصورة الأصلية</h3>
+                <div className="rounded-3xl border border-gray-700/70 bg-gray-900/50 p-4">
+                  <h3 className="text-lg font-semibold mb-3 text-gray-300">الصورة الأصلية</h3>
                   {preview ? (
                     <img
                       src={preview}
-                      className="w-full rounded-3xl border border-slate-700 object-contain"
+                      className="w-full rounded-3xl border border-gray-700 object-contain"
                       alt="Original upload"
                     />
                   ) : (
@@ -140,15 +234,15 @@ export default function ImageDetector() {
                   )}
                 </div>
 
-                <div className="rounded-3xl border border-slate-700/70 bg-slate-950/80 p-4">
+                <div className="rounded-3xl border border-gray-700/70 bg-gray-900/50 p-4">
                   <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-lg font-semibold">تفسير AI</h3>
+                    <h3 className="text-lg font-semibold text-gray-300">تفسير AI</h3>
                     <span className="text-xs uppercase tracking-[0.25em] text-gray-500">Grad-CAM</span>
                   </div>
                   {showHeatmap && heatmap ? (
                     <img
                       src={`data:image/jpeg;base64,${heatmap}`}
-                      className="w-full rounded-3xl border border-slate-700 object-contain"
+                      className="w-full rounded-3xl border border-gray-700 object-contain"
                       alt="Heatmap explanation"
                     />
                   ) : (
@@ -156,9 +250,9 @@ export default function ImageDetector() {
                   )}
                 </div>
               </div>
-            </div>
+            </motion.div>
           )}
-        </div>
+        </motion.div>
       </div>
     </div>
   );
