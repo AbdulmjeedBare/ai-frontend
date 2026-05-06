@@ -11,8 +11,10 @@ export default function ImageDetector() {
   const navigate = useNavigate();
   const [image, setImage] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
-  const [result, setResult] = useState<string | null>(null);
-  const [confidence, setConfidence] = useState<number | null>(null);
+  const [label, setLabel] = useState<string | null>(null);
+  const [isFake, setIsFake] = useState<boolean | null>(null);
+  const [fakeProbability, setFakeProbability] = useState<number | null>(null);
+  const [realProbability, setRealProbability] = useState<number | null>(null);
   const [heatmap, setHeatmap] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [showHeatmap, setShowHeatmap] = useState(false);
@@ -23,8 +25,10 @@ export default function ImageDetector() {
     if (!file) return;
 
     setError(null);
-    setResult(null);
-    setConfidence(null);
+    setLabel(null);
+    setIsFake(null);
+    setFakeProbability(null);
+    setRealProbability(null);
     setHeatmap(null);
     setShowHeatmap(false);
     setImage(file);
@@ -54,8 +58,10 @@ export default function ImageDetector() {
         }
       );
 
-      setResult(response.data.result);
-      setConfidence(response.data.confidence);
+      setLabel(response.data.label);
+      setIsFake(response.data.is_fake);
+      setFakeProbability(response.data.fake_probability);
+      setRealProbability(response.data.real_probability);
       setHeatmap(response.data.heatmap);
       setShowHeatmap(false);
     } catch (err) {
@@ -123,8 +129,10 @@ export default function ImageDetector() {
                     // Load example - for now just clear
                     setImage(null);
                     setPreview(null);
-                    setResult(null);
-                    setConfidence(null);
+                    setLabel(null);
+                    setIsFake(null);
+                    setFakeProbability(null);
+                    setRealProbability(null);
                     setHeatmap(null);
                     setShowHeatmap(false);
                     setError(null);
@@ -194,22 +202,29 @@ export default function ImageDetector() {
             </motion.div>
           )}
 
-          {result && !loading && (
+          {label && !loading && (
             <motion.div
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
               className={`p-6 rounded-xl border-2 ${
-                result === 'Fake' ? 'bg-red-950/30 border-red-500/50' : 'bg-green-950/30 border-green-500/50'
+                isFake ? 'bg-red-950/30 border-red-500/50' : 'bg-green-950/30 border-green-500/50'
               }`}
             >
               <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
                 <div>
                   <h2 className="text-2xl font-bold">
-                    النتيجة: <span className={result === 'Fake' ? 'text-red-400' : 'text-green-400'}>
-                      {result === 'Fake' ? 'صورة مزيفة ⚠️' : 'صورة حقيقية ✅'}
+                    النتيجة: <span className={isFake ? 'text-red-400' : 'text-green-400'}>
+                      {label}
                     </span>
                   </h2>
-                  <p className="text-sm text-gray-400 mt-2">الثقة: {(confidence! * 100).toFixed(2)}%</p>
+                  <div className="flex gap-6 mt-3">
+                    <p className="text-sm text-gray-400">
+                      <span className="text-red-400 font-semibold">{fakeProbability?.toFixed(2)}%</span> مولدة
+                    </p>
+                    <p className="text-sm text-gray-400">
+                      <span className="text-green-400 font-semibold">{realProbability?.toFixed(2)}%</span> حقيقية
+                    </p>
+                  </div>
                 </div>
                 <Button
                   onClick={() => setShowHeatmap(!showHeatmap)}
