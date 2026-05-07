@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ArrowLeft, CheckCircle, XCircle, AlertTriangle, Sparkles } from 'lucide-react';
+import { ArrowLeft, CheckCircle, XCircle, AlertTriangle, Sparkles, ExternalLink } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
@@ -9,10 +9,19 @@ import { Header } from '../components/Header';
 import { LoadingSpinner } from '../components/LoadingSpinner';
 import { Progress } from '../components/ui/progress';
 
+interface UrlAnalysis {
+  url: string;
+  risk_score: number;
+  is_suspicious: boolean;
+  reasons: string[];
+}
+
 interface AnalysisResult {
-  phishing_probability: number;
-  isPhishing: boolean;
-  suspiciousWords?: string[];
+  result: string;
+  confidence: number;
+  is_phishing: boolean;
+  urls_analysis?: UrlAnalysis[];
+  error?: string;
 }
 
 export function PhishingDetector() {
@@ -20,75 +29,58 @@ export function PhishingDetector() {
   const [text, setText] = useState('');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [result, setResult] = useState<AnalysisResult | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const getRiskColor = (riskScore: number): string => {
+    if (riskScore <= 30) return 'bg-green-500';
+    if (riskScore <= 60) return 'bg-yellow-500';
+    return 'bg-red-500';
+  };
+
+  const getRiskProgressColor = (riskScore: number): string => {
+    if (riskScore <= 30) return 'accent-green-500';
+    if (riskScore <= 60) return 'accent-yellow-500';
+    return 'accent-red-500';
+  };
 
   const analyzeText = async () => {
     if (!text.trim()) return;
 
     setIsAnalyzing(true);
     setResult(null);
+    setError(null);
 
     try {
-      const response = await axios.post('http://localhost:5000/predict-text', {
+      const response = await axios.post('http://127.0.0.1:8000/predict-text', {
         text: text,
       });
 
-      const phishingProbability = response.data.phishing_probability;
-      const suspiciousKeywords = ['urgent', 'click here', 'verify', 'account', 'password', 'winner', 'prize', 'confirm'];
-      const foundSuspicious = suspiciousKeywords.filter(word =>
-        text.toLowerCase().includes(word)
-      );
-
-      setTimeout(() => {
-        setResult({
-          phishing_probability: phishingProbability,
-          isPhishing: phishingProbability > 0.5,
-          suspiciousWords: foundSuspicious,
-        });
-        setIsAnalyzing(false);
-      }, 1500);
-    } catch (error) {
-      console.error('Error analyzing text:', error);
-      const mockProbability = Math.random() * 0.4 + 0.4;
-      const suspiciousKeywords = ['urgent', 'click', 'verify', 'account', 'password'];
-      const foundSuspicious = suspiciousKeywords.filter(word =>
-        text.toLowerCase().includes(word)
-      );
-
-      setTimeout(() => {
-        setResult({
-          phishing_probability: mockProbability,
-          isPhishing: mockProbability > 0.5,
-          suspiciousWords: foundSuspicious,
-        });
-        setIsAnalyzing(false);
-      }, 1500);
+      setResult({
+        result: response.data.result,
+        confidence: response.data.confidence,
+        is_phishing: response.data.is_phishing,
+        urls_analysis: response.data.urls_analysis || [],
+      });
+    } catch (err) {
+      console.error('Error analyzing text:', err);
+      setError('حدث خطأ أثناء الاتصال بالخادم. يرجى المحاولة مرة أخرى.');
+    } finally {
+      setIsAnalyzing(false);
     }
   };
 
   const loadExample = () => {
-    const exampleText = "URGENT! Your account has been compromised. Click here immediately to verify your password and secure your account. You have won a prize!";
+    const exampleText = "عزيزي العميل، تم اكتشاف نشاط مشبوه في حسابك! يرجى النقر على الرابط http://paypal-verify.xyz/login فوراً للتحقق من معلوماتك والتأكد من أمان حسابك.";
     setText(exampleText);
     setResult(null);
+    setError(null);
   };
 
   const reset = () => {
     setText('');
     setResult(null);
+    setError(null);
     setIsAnalyzing(false);
-  };
-
-  const highlightSuspiciousWords = (text: string, words: string[]) => {
-    if (!words || words.length === 0) return text;
-
-    let highlightedText = text;
-    words.forEach(word => {
-      const regex = new RegExp(`(${word})`, 'gi');
-      highlightedText = highlightedText.replace(
-        regex,
-        '<span class="bg-red-500/30 text-red-300 px-1 rounded">$1</span>'
-      );
-    });
-    return highlightedText;
   };
 
   return (
@@ -180,82 +172,147 @@ export function PhishingDetector() {
                 </motion.div>
               )}
 
+              {error && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  className="mt-4 text-sm text-red-300 bg-red-500/10 border border-red-500/20 rounded-2xl px-4 py-3"
+                >
+                  {error}
+                </motion.div>
+              )}
+
               {result && !isAnalyzing && (
                 <motion.div
                   initial={{ opacity: 0, scale: 0.9 }}
                   animate={{ opacity: 1, scale: 1 }}
                   className="space-y-6"
                 >
+                  {/* النتيجة الرئيسية */}
                   <div className={`p-6 rounded-xl border-2 ${
-                    result.isPhishing
+                    result.is_phishing
                       ? 'bg-red-950/30 border-red-500/50'
                       : 'bg-green-950/30 border-green-500/50'
                   }`}>
                     <div className="flex items-center justify-between mb-4">
                       <div className="flex items-center gap-3">
-                        {result.isPhishing ? (
+                        {result.is_phishing ? (
                           <XCircle className="w-8 h-8 text-red-400" />
                         ) : (
                           <CheckCircle className="w-8 h-8 text-green-400" />
                         )}
                         <div>
                           <h3 className={`text-2xl font-bold ${
-                            result.isPhishing ? 'text-red-400' : 'text-green-400'
+                            result.is_phishing ? 'text-red-400' : 'text-green-400'
                           }`}>
-                            {result.isPhishing ? 'رسالة احتيال ⚠️' : 'رسالة آمنة ✅'}
+                            {result.result}
                           </h3>
                           <p className="text-gray-400 text-sm">
-                            {result.isPhishing ? 'تحذير: هذه رسالة مشبوهة' : 'الرسالة تبدو آمنة'}
+                            {result.is_phishing ? 'تحذير: هذا نص مشبوه' : 'النص يبدو آمناً'}
                           </p>
                         </div>
                       </div>
                       <div className="text-left">
                         <p className="text-3xl font-bold text-white">
-                          {(result.phishing_probability * 100).toFixed(1)}%
+                          {result.confidence.toFixed(1)}%
                         </p>
-                        <p className="text-sm text-gray-400">احتمالية الاحتيال</p>
+                        <p className="text-sm text-gray-400">نسبة الثقة</p>
                       </div>
                     </div>
 
                     <div className="space-y-2">
                       <div className="flex justify-between text-sm text-gray-400">
-                        <span>مستوى الخطر</span>
-                        <span>{(result.phishing_probability * 100).toFixed(1)}%</span>
+                        <span>مستوى الثقة</span>
+                        <span>{result.confidence.toFixed(1)}%</span>
                       </div>
                       <Progress
-                        value={result.phishing_probability * 100}
+                        value={result.confidence}
                         className="h-2"
                       />
                     </div>
                   </div>
 
-                  {result.suspiciousWords && result.suspiciousWords.length > 0 && (
+                  {/* قسم تحليل الروابط */}
+                  {result.urls_analysis && result.urls_analysis.length > 0 && (
                     <motion.div
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
-                      className="p-6 bg-orange-950/30 border border-orange-500/30 rounded-xl"
+                      className="space-y-3"
                     >
-                      <div className="flex items-center gap-2 mb-3">
+                      <div className="flex items-center gap-2 mb-4">
                         <AlertTriangle className="w-5 h-5 text-orange-400" />
-                        <h4 className="font-semibold text-orange-300">كلمات مشبوهة تم اكتشافها</h4>
+                        <h4 className="font-semibold text-orange-300">تحليل الروابط المكتشفة</h4>
                       </div>
 
-                      <div
-                        className="p-4 bg-gray-900/50 rounded-lg text-gray-300 leading-relaxed"
-                        dangerouslySetInnerHTML={{
-                          __html: highlightSuspiciousWords(text, result.suspiciousWords)
-                        }}
-                        dir="auto"
-                      />
-
-                      <div className="flex flex-wrap gap-2 mt-4">
-                        {result.suspiciousWords.map((word, index) => (
-                          <span
+                      <div className="grid gap-4">
+                        {result.urls_analysis.map((urlData, index) => (
+                          <motion.div
                             key={index}
-                            className="px-3 py-1 bg-red-500/20 border border-red-500/30 rounded-full text-red-300 text-sm"
+                            initial={{ opacity: 0, y: 5 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: index * 0.1 }}
+                            className={`p-4 rounded-lg border ${
+                              urlData.is_suspicious
+                                ? 'bg-red-950/20 border-red-500/30'
+                                : 'bg-green-950/20 border-green-500/30'
+                            }`}
                           >
-                            {word}
-                          </span>
+                            {/* الرابط */}
+                            <div className="flex items-start justify-between mb-3">
+                              <div className="flex items-center gap-2 flex-1 min-w-0">
+                                <ExternalLink className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                                <a
+                                  href={urlData.url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-blue-400 hover:text-blue-300 break-all text-sm truncate"
+                                  title={urlData.url}
+                                >
+                                  {urlData.url}
+                                </a>
+                              </div>
+                              {urlData.is_suspicious && (
+                                <span className="ml-2 px-2 py-1 bg-red-500/20 text-red-300 text-xs rounded-full flex-shrink-0">
+                                  مشبوه
+                                </span>
+                              )}
+                            </div>
+
+                            {/* درجة الخطورة مع شريط التقدم */}
+                            <div className="mb-3">
+                              <div className="flex justify-between items-center mb-2">
+                                <span className="text-sm text-gray-400">درجة الخطورة</span>
+                                <span className={`text-lg font-bold ${
+                                  urlData.risk_score <= 30 ? 'text-green-400' :
+                                  urlData.risk_score <= 60 ? 'text-yellow-400' :
+                                  'text-red-400'
+                                }`}>
+                                  {urlData.risk_score.toFixed(1)}%
+                                </span>
+                              </div>
+                              <div className={`w-full h-2 bg-gray-800 rounded-full overflow-hidden`}>
+                                <div
+                                  className={`h-full transition-all duration-500 ${getRiskColor(urlData.risk_score)}`}
+                                  style={{ width: `${urlData.risk_score}%` }}
+                                />
+                              </div>
+                            </div>
+
+                            {/* الأسباب */}
+                            {urlData.reasons && urlData.reasons.length > 0 && (
+                              <div className="pt-3 border-t border-gray-700/50">
+                                <p className="text-sm text-gray-400 mb-2">الأسباب:</p>
+                                <ul className="space-y-1">
+                                  {urlData.reasons.map((reason, reasonIndex) => (
+                                    <li key={reasonIndex} className="flex items-start gap-2 text-sm text-gray-300">
+                                      <span className="text-orange-400 mt-1">•</span>
+                                      <span>{reason}</span>
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
+                          </motion.div>
                         ))}
                       </div>
                     </motion.div>
